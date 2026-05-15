@@ -489,7 +489,9 @@ class ScheduleSheet {
     timeLabel.textContent = "Время";
     this.timeInput = document.createElement("input");
     this.timeInput.type = "time";
-    this.timeInput.addEventListener("change", () => this.timeInput.blur());
+    this.timeInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") this.timeInput.blur();
+    });
     timeRow.appendChild(timeLabel);
     timeRow.appendChild(this.timeInput);
 
@@ -501,7 +503,9 @@ class ScheduleSheet {
     this.leadInput.type = "number";
     this.leadInput.min = "0";
     this.leadInput.value = String(this.task.notifyMinutesBefore ?? 15);
-    this.leadInput.addEventListener("change", () => this.leadInput.blur());
+    this.leadInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") this.leadInput.blur();
+    });
     leadRow.appendChild(leadLabel);
     leadRow.appendChild(this.leadInput);
 
