@@ -87,6 +87,28 @@ export default class TaskBuddyPlugin extends Plugin {
     // CM6 extension: hide <!--tb:...--> meta and render a clickable ⋯ / 🔔 widget
     this.registerEditorExtension(buildTaskBuddyCMExtension(this));
 
+    // Reading mode: render the same ⋯ / 🔔 widget after Obsidian reopens a note in preview.
+    this.registerMarkdownPostProcessor(async (el, ctx) => {
+      const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+      if (!(file instanceof TFile)) return;
+
+      const content = await this.app.vault.cachedRead(file);
+      const lines = content.split("\n");
+      const usedLines = new Set<number>();
+
+      for (const li of Array.from(el.querySelectorAll<HTMLElement>("li.task-list-item"))) {
+        if (li.querySelector(".tb-meta-dots")) continue;
+        const line = resolveRenderedTaskLine(li, lines, usedLines);
+        if (line == null) continue;
+
+        const badge = createTaskBuddyBadge(reminderLabelFromLine(lines[line]), () => {
+          this.openSchedulerForLine(file, line);
+        });
+        const target = li.querySelector<HTMLElement>("p:last-child") ?? li;
+        target.appendChild(badge);
+      }
+    });
+
     // Command: open scheduler for current line
     this.addCommand({
       id: "schedule-task-current-line",
