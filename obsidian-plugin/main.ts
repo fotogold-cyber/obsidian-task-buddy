@@ -10,6 +10,15 @@ import {
   requestUrl,
   Platform,
 } from "obsidian";
+import {
+  ViewPlugin,
+  ViewUpdate,
+  Decoration,
+  DecorationSet,
+  EditorView,
+  WidgetType,
+} from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 
 /* ============================================================
  * Settings
@@ -63,8 +72,10 @@ export default class TaskBuddyPlugin extends Plugin {
     this.addSettingTab(new TBSettingsTab(this.app, this));
 
     // Click handler — work in both Reading and Live Preview / Source modes.
-    // We listen on the workspace container for clicks on checkbox lines.
     this.registerDomEvent(document, "click", this.onDocumentClick);
+
+    // CM6 extension: hide <!--tb:...--> meta and render a clickable ⋯ / 🔔 widget
+    this.registerEditorExtension(buildTaskBuddyCMExtension(this));
 
     // Command: open scheduler for current line
     this.addCommand({
@@ -114,30 +125,38 @@ export default class TaskBuddyPlugin extends Plugin {
     const target = evt.target as HTMLElement | null;
     if (!target) return;
 
-    // We only care about clicks ON the checkbox itself.
-    // Obsidian renders checkboxes as <input type="checkbox" class="task-list-item-checkbox"> in both modes.
-    const checkbox = target.closest<HTMLInputElement>("input.task-list-item-checkbox");
-    if (!checkbox) return;
+    // ⋯ widget handles itself (see CM6 extension); ignore here to avoid double-open.
+    if (target.closest(".tb-meta-dots")) return;
 
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view) return;
+    if (!view?.file) return;
     const file = view.file;
-    if (!file) return;
 
-    // We do NOT preventDefault — let Obsidian toggle the checkbox normally.
-    // After Obsidian's own handler runs, we open the sheet ONLY when the box was just CHECKED OFF? 
-    // The user wants: clicking on checklist → bottom sheet.
-    // We open the sheet on every click, but don't block toggling.
-    const lineAttr = checkbox.getAttribute("data-line");
-    const line = lineAttr ? parseInt(lineAttr, 10) : this.findLineForCheckbox(view, checkbox);
-    if (line == null || isNaN(line)) return;
+    // 1) Click on the checkbox itself
+    const checkbox = target.closest<HTMLInputElement>("input.task-list-item-checkbox");
+    if (checkbox) {
+      const lineAttr = checkbox.getAttribute("data-line");
+      const line = lineAttr ? parseInt(lineAttr, 10) : this.findLineForCheckbox(view, checkbox);
+      if (line == null || isNaN(line)) return;
+      window.setTimeout(() => this.openSchedulerForLine(file, line), 30);
+      return;
+    }
 
-    // Defer slightly so Obsidian's toggle finishes first
-    window.setTimeout(() => this.openSchedulerForLine(file, line), 30);
+    // 2) Click on text of a rendered task line (Reading mode <li class="task-list-item">)
+    const li = target.closest<HTMLElement>("li.task-list-item");
+    if (li) {
+      // ignore link clicks etc.
+      if (target.closest("a")) return;
+      const cb = li.querySelector<HTMLInputElement>("input.task-list-item-checkbox");
+      const lineAttr = li.getAttribute("data-line") || cb?.getAttribute("data-line") || null;
+      const line = lineAttr ? parseInt(lineAttr, 10) : null;
+      if (line == null || isNaN(line)) return;
+      this.openSchedulerForLine(file, line);
+      return;
+    }
   };
 
   private findLineForCheckbox(view: MarkdownView, _cb: HTMLInputElement): number | null {
-    // Fallback: use cursor line in editor mode
     const editor = view.editor;
     if (editor) return editor.getCursor().line;
     return null;
@@ -152,7 +171,7 @@ export default class TaskBuddyPlugin extends Plugin {
     await this.openSchedulerForLine(file, line);
   }
 
-  private async openSchedulerForLine(file: TFile, line: number) {
+  async openSchedulerForLine(file: TFile, line: number) {
     const content = await this.app.vault.read(file);
     const lines = content.split("\n");
     const raw = lines[line] ?? "";
@@ -591,4 +610,101 @@ class TBSettingsTab extends PluginSettingTab {
         b.setButtonText("Sync").onClick(() => this.plugin.fullSync(true)),
       );
   }
+}
+
+/* ============================================================
+ * CodeMirror 6 extension: hide <!--tb:...--> meta and render a
+ * clickable widget at end of every checklist line.
+ * ============================================================ */
+
+class DotsWidget extends WidgetType {
+  constructor(
+    private readonly hasReminder: boolean,
+    private readonly onClick: () => void,
+  ) {
+    super();
+  }
+  eq(other: DotsWidget): boolean {
+    return other.hasReminder === this.hasReminder;
+  }
+  toDOM(): HTMLElement {
+    const span = document.createElement("span");
+    span.className = "tb-meta-dots" + (this.hasReminder ? " tb-meta-dots-active" : "");
+    span.textContent = this.hasReminder ? "🔔" : "⋯";
+    span.setAttribute("contenteditable", "false");
+    span.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    span.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.onClick();
+    });
+    return span;
+  }
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
+  const decorate = (view: EditorView): DecorationSet => {
+    const builder = new RangeSetBuilder<Decoration>();
+    const doc = view.state.doc;
+    for (const { from, to } of view.visibleRanges) {
+      let pos = from;
+      while (pos <= to) {
+        const line = doc.lineAt(pos);
+        const text = line.text;
+        const taskMatch = text.match(CHECK_RE);
+        if (taskMatch) {
+          // 1) Hide the meta comment, if present
+          const metaMatch = META_RE.exec(text);
+          let hasReminder = false;
+          if (metaMatch && typeof metaMatch.index === "number") {
+            hasReminder = true;
+            const metaIdx = metaMatch.index;
+            const start = line.from + metaIdx;
+            const end = start + metaMatch[0].length;
+            // Also swallow a single leading space so we don't leave a trailing gap.
+            const leading = metaIdx > 0 && text[metaIdx - 1] === " " ? 1 : 0;
+            builder.add(start - leading, end, Decoration.replace({}));
+          }
+
+          // 2) Append a ⋯ / 🔔 widget at the end of the line
+          const lineNumber = line.number - 1; // CM is 1-indexed, Obsidian editor is 0-indexed
+          builder.add(
+            line.to,
+            line.to,
+            Decoration.widget({
+              widget: new DotsWidget(hasReminder, () => {
+                const mdView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                const file = mdView?.file;
+                if (file) plugin.openSchedulerForLine(file, lineNumber);
+              }),
+              side: 1,
+            }),
+          );
+        }
+        pos = line.to + 1;
+      }
+    }
+    return builder.finish();
+  };
+
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = decorate(view);
+      }
+      update(u: ViewUpdate) {
+        if (u.docChanged || u.viewportChanged || u.selectionSet) {
+          this.decorations = decorate(u.view);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
 }

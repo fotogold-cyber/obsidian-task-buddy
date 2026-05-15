@@ -125,3 +125,31 @@
   font-size: 11px;
   vertical-align: middle;
 }
+
+/* Inline ⋯ / 🔔 widget at end of task lines (Live Preview / Source) */
+.tb-meta-dots {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.2;
+  color: var(--text-muted);
+  background: var(--background-modifier-hover);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  vertical-align: middle;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.tb-meta-dots:hover {
+  opacity: 1;
+  background: var(--background-modifier-border);
+}
+.tb-meta-dots-active {
+  color: var(--text-accent);
+  opacity: 0.9;
+  background: transparent;
+}
+.tb-meta-dots-active:hover { background: var(--background-modifier-hover); }
