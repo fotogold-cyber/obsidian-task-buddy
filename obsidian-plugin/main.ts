@@ -415,6 +415,7 @@ type SheetResult =
 
 class ScheduleSheet {
   private overlay!: HTMLDivElement;
+  private sheet!: HTMLDivElement;
   private timeInput!: HTMLInputElement;
   private dateInput!: HTMLInputElement;
   private leadInput!: HTMLInputElement;
@@ -445,6 +446,7 @@ class ScheduleSheet {
 
     const sheet = document.createElement("div");
     sheet.className = "tb-sheet";
+    this.sheet = sheet;
 
     const title = document.createElement("div");
     title.className = "tb-sheet-title";
@@ -551,31 +553,55 @@ class ScheduleSheet {
     this.overlay.appendChild(sheet);
     document.body.appendChild(this.overlay);
 
-    // Mobile keyboard handling: shrink overlay to visualViewport height so the
-    // bottom-anchored sheet floats just above the keyboard. Scroll focused
-    // input into view on focus.
-    if (Platform.isMobile && window.visualViewport) {
-      const vv = window.visualViewport;
-      this.vvHandler = () => {
-        this.overlay.style.height = `${vv.height}px`;
-        this.overlay.style.top = `${vv.offsetTop}px`;
-        this.overlay.style.bottom = "auto";
-      };
-      vv.addEventListener("resize", this.vvHandler);
-      vv.addEventListener("scroll", this.vvHandler);
-      this.vvHandler();
+    // Mobile keyboard handling: when an input receives focus, switch the sheet
+    // to a compact top position and cap its height so the focused field stays
+    // above the iOS keyboard even when visualViewport is late or unreliable.
+    if (Platform.isMobile) {
+      if (window.visualViewport) {
+        const vv = window.visualViewport;
+        this.vvHandler = () => this.applyMobileViewport(Boolean(this.overlay.querySelector("input:focus")));
+        vv.addEventListener("resize", this.vvHandler);
+        vv.addEventListener("scroll", this.vvHandler);
+        this.applyMobileViewport(false);
+      }
 
       this.overlay.querySelectorAll<HTMLInputElement>("input").forEach((el) => {
-        el.addEventListener("focus", () => {
-          window.setTimeout(() => {
-            el.scrollIntoView({ block: "center", behavior: "smooth" });
-          }, 250);
-        });
+        el.addEventListener("focus", () => this.revealFocusedInput(el));
+        el.addEventListener("input", () => this.revealFocusedInput(el));
       });
     }
   }
 
   private vvHandler: (() => void) | null = null;
+
+  private applyMobileViewport(keyboardMode: boolean) {
+    const vv = window.visualViewport;
+    const height = vv?.height ?? window.innerHeight;
+    const top = vv?.offsetTop ?? 0;
+    this.overlay.style.height = `${height}px`;
+    this.overlay.style.top = `${top}px`;
+    this.overlay.style.bottom = "auto";
+    if (keyboardMode) {
+      this.overlay.classList.add("tb-keyboard-open");
+      this.sheet.style.maxHeight = `${Math.max(260, Math.min(height - 16, window.innerHeight * 0.52))}px`;
+    } else {
+      this.overlay.classList.remove("tb-keyboard-open");
+      this.sheet.style.maxHeight = "";
+    }
+  }
+
+  private revealFocusedInput(el: HTMLInputElement) {
+    if (!Platform.isMobile) return;
+    this.applyMobileViewport(true);
+    window.setTimeout(() => {
+      this.applyMobileViewport(true);
+      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    }, 80);
+    window.setTimeout(() => {
+      this.applyMobileViewport(true);
+      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    }, 320);
+  }
 
   private makeChip(label: string, cb: () => void): HTMLButtonElement {
     const b = document.createElement("button");
