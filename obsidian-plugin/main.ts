@@ -550,7 +550,32 @@ class ScheduleSheet {
 
     this.overlay.appendChild(sheet);
     document.body.appendChild(this.overlay);
+
+    // Mobile keyboard handling: shrink overlay to visualViewport height so the
+    // bottom-anchored sheet floats just above the keyboard. Scroll focused
+    // input into view on focus.
+    if (Platform.isMobile && window.visualViewport) {
+      const vv = window.visualViewport;
+      this.vvHandler = () => {
+        this.overlay.style.height = `${vv.height}px`;
+        this.overlay.style.top = `${vv.offsetTop}px`;
+        this.overlay.style.bottom = "auto";
+      };
+      vv.addEventListener("resize", this.vvHandler);
+      vv.addEventListener("scroll", this.vvHandler);
+      this.vvHandler();
+
+      this.overlay.querySelectorAll<HTMLInputElement>("input").forEach((el) => {
+        el.addEventListener("focus", () => {
+          window.setTimeout(() => {
+            el.scrollIntoView({ block: "center", behavior: "smooth" });
+          }, 250);
+        });
+      });
+    }
   }
+
+  private vvHandler: (() => void) | null = null;
 
   private makeChip(label: string, cb: () => void): HTMLButtonElement {
     const b = document.createElement("button");
