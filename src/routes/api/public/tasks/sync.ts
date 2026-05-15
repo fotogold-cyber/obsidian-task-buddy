@@ -2,17 +2,26 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 
-const TaskSchema = z.object({
+const UpsertTaskSchema = z.object({
   obsidian_id: z.string().min(1).max(255),
   title: z.string().min(1).max(2000),
   due_at: z.string().datetime({ offset: true }).nullable().optional(),
   notify_minutes_before: z.number().int().min(0).max(60 * 24 * 30).optional(),
   completed: z.boolean().optional(),
   vault_path: z.string().max(2000).nullable().optional(),
+  _delete: z.literal(false).optional(),
 });
+
+const DeleteTaskSchema = z.object({
+  obsidian_id: z.string().min(1).max(255),
+  _delete: z.literal(true),
+});
+
+const TaskSchema = z.union([DeleteTaskSchema, UpsertTaskSchema]);
 
 const BodySchema = z.object({
   mode: z.enum(["push", "full"]),
+  client: z.string().max(64).optional(),
   tasks: z.array(TaskSchema).max(5000),
 });
 
@@ -52,8 +61,24 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
         const { mode, tasks } = parsed.data;
         const supabase = getAdmin();
 
+        // Split into deletes and upserts
+        const deleteIds = tasks
+          .filter((t): t is z.infer<typeof DeleteTaskSchema> => (t as any)._delete === true)
+          .map((t) => t.obsidian_id);
+        const upserts = tasks.filter(
+          (t): t is z.infer<typeof UpsertTaskSchema> => (t as any)._delete !== true,
+        );
+
+        if (deleteIds.length) {
+          const { error: delErr } = await supabase
+            .from("tasks")
+            .delete()
+            .in("obsidian_id", deleteIds);
+          if (delErr) return Response.json({ error: delErr.message }, { status: 500 });
+        }
+
         // Fetch existing rows for incoming ids to detect changes that should reset notified_at
-        const incomingIds = tasks.map((t) => t.obsidian_id);
+        const incomingIds = upserts.map((t) => t.obsidian_id);
         const { data: existing, error: existingErr } = await supabase
           .from("tasks")
           .select("obsidian_id, due_at, notify_minutes_before, notified_at")
