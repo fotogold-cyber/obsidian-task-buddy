@@ -427,11 +427,21 @@ class ScheduleSheet {
   ) {}
 
   open() {
+    // iOS: dismiss the editor keyboard before showing the sheet, otherwise
+    // it covers the date/time pickers and "Готово".
+    this.dismissKeyboard();
+
     this.overlay = document.createElement("div");
     this.overlay.className = "tb-sheet-overlay" + (Platform.isMobile ? " is-mobile" : "");
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close({ action: "cancel" });
     });
+    // Tapping anywhere on the sheet (outside an input) also dismisses keyboard.
+    this.overlay.addEventListener("touchstart", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t && !t.closest("input")) this.dismissKeyboard();
+    }, { passive: true });
+
 
     const sheet = document.createElement("div");
     sheet.className = "tb-sheet";
@@ -467,6 +477,7 @@ class ScheduleSheet {
     dateLabel.textContent = "Дата";
     this.dateInput = document.createElement("input");
     this.dateInput.type = "date";
+    this.dateInput.addEventListener("change", () => this.dateInput.blur());
     dateRow.appendChild(dateLabel);
     dateRow.appendChild(this.dateInput);
 
@@ -476,6 +487,7 @@ class ScheduleSheet {
     timeLabel.textContent = "Время";
     this.timeInput = document.createElement("input");
     this.timeInput.type = "time";
+    this.timeInput.addEventListener("change", () => this.timeInput.blur());
     timeRow.appendChild(timeLabel);
     timeRow.appendChild(this.timeInput);
 
@@ -487,6 +499,7 @@ class ScheduleSheet {
     this.leadInput.type = "number";
     this.leadInput.min = "0";
     this.leadInput.value = String(this.task.notifyMinutesBefore ?? 15);
+    this.leadInput.addEventListener("change", () => this.leadInput.blur());
     leadRow.appendChild(leadLabel);
     leadRow.appendChild(this.leadInput);
 
@@ -573,10 +586,11 @@ class ScheduleSheet {
     }
     const wrap = this.overlay.querySelector<HTMLElement>('[data-role="picker"]');
     if (wrap) wrap.style.display = "block";
-    window.setTimeout(() => this.dateInput.focus(), 50);
+    if (!Platform.isMobile) window.setTimeout(() => this.dateInput.focus(), 50);
   }
 
   private commit() {
+    this.dismissKeyboard();
     const dStr = this.dateInput.value;
     const tStr = this.timeInput.value || "09:00";
     if (!dStr) {
@@ -594,7 +608,14 @@ class ScheduleSheet {
     });
   }
 
+  private dismissKeyboard() {
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && typeof ae.blur === "function") ae.blur();
+    this.overlay?.querySelectorAll<HTMLInputElement>("input").forEach((el) => el.blur());
+  }
+
   private close(r: SheetResult) {
+    this.dismissKeyboard();
     this.overlay.remove();
     this.onClose(r);
   }
