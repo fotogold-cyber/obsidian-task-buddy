@@ -1,0 +1,9 @@
+{
+  "id": "obsidian-task-buddy",
+  "name": "Task Buddy (Telegram alerts)",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Превращает чек-листы в задачи с напоминаниями в Telegram. Tap по чеклисту → выбор даты/времени как в Google Tasks.",
+  "author": "Alex",
+  "isDesktopOnly": false
+}

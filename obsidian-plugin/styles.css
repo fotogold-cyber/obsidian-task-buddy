@@ -1,0 +1,127 @@
+/* Bottom sheet (mobile-friendly) */
+.tb-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 9998;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.tb-sheet {
+  width: 100%;
+  max-width: 480px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  animation: tb-slide-up 0.18s ease-out;
+}
+
+@keyframes tb-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.tb-sheet-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tb-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.tb-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+  font-size: 14px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tb-chip:hover { background: var(--background-modifier-hover); }
+.tb-chip.tb-chip-icon { padding: 8px 10px; }
+
+.tb-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.tb-row label { font-size: 13px; color: var(--text-muted); min-width: 110px; }
+.tb-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 14px;
+}
+
+.tb-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  gap: 8px;
+}
+.tb-btn {
+  padding: 10px 18px;
+  border-radius: 999px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.tb-btn-primary {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+.tb-btn-ghost {
+  background: transparent;
+  color: var(--text-accent);
+}
+.tb-btn-danger {
+  background: transparent;
+  color: var(--text-error);
+}
+
+.tb-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* Inline reminder badge in editor (decoration) */
+.tb-reminder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: var(--background-modifier-hover);
+  color: var(--text-accent);
+  font-size: 11px;
+  vertical-align: middle;
+}

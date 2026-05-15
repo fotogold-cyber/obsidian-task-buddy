@@ -1,0 +1,21 @@
+{
+  "name": "obsidian-task-buddy",
+  "version": "0.1.0",
+  "description": "Obsidian plugin: checklist tasks → Telegram reminders",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production"
+  },
+  "keywords": ["obsidian", "plugin", "tasks", "telegram"],
+  "author": "Alex",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.21.0",
+    "obsidian": "^1.5.7",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.0"
+  }
+}
