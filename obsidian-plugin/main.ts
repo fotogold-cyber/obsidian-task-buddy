@@ -503,7 +503,9 @@ class ScheduleSheet {
     this.leadInput.type = "number";
     this.leadInput.min = "0";
     this.leadInput.value = String(this.task.notifyMinutesBefore ?? 15);
-    this.leadInput.addEventListener("change", () => this.leadInput.blur());
+    this.leadInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") this.leadInput.blur();
+    });
     leadRow.appendChild(leadLabel);
     leadRow.appendChild(this.leadInput);
 
