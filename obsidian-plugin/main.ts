@@ -29,6 +29,8 @@ interface TBSettings {
   apiKey: string;         // PLUGIN_API_KEY
   defaultLeadMinutes: number;
   fullSyncIntervalMin: number;
+  enableLog: boolean;
+  logFile: string;        // path within vault
 }
 
 const DEFAULT_SETTINGS: TBSettings = {
@@ -36,6 +38,8 @@ const DEFAULT_SETTINGS: TBSettings = {
   apiKey: "",
   defaultLeadMinutes: 15,
   fullSyncIntervalMin: 30,
+  enableLog: false,
+  logFile: "TaskBuddy-log.md",
 };
 
 /* ============================================================
@@ -111,6 +115,31 @@ export default class TaskBuddyPlugin extends Plugin {
   }
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /* ----------------------------- Logging --------------------------------- */
+  async log(level: "info" | "warn" | "error", msg: string, data?: unknown) {
+    const line = `- \`${new Date().toISOString()}\` **${level.toUpperCase()}** ${msg}` +
+      (data !== undefined ? `\n  \`\`\`json\n  ${JSON.stringify(data, null, 2).replace(/\n/g, "\n  ")}\n  \`\`\`` : "");
+    // Always log to console
+    if (level === "error") console.error("[TaskBuddy]", msg, data ?? "");
+    else if (level === "warn") console.warn("[TaskBuddy]", msg, data ?? "");
+    else console.log("[TaskBuddy]", msg, data ?? "");
+
+    if (!this.settings.enableLog) return;
+    const path = (this.settings.logFile || "TaskBuddy-log.md").trim();
+    if (!path) return;
+    try {
+      const existing = this.app.vault.getAbstractFileByPath(path);
+      if (existing && existing instanceof TFile) {
+        const cur = await this.app.vault.read(existing);
+        await this.app.vault.modify(existing, cur + "\n" + line);
+      } else {
+        await this.app.vault.create(path, `# Task Buddy log\n\n${line}`);
+      }
+    } catch (e) {
+      console.error("[TaskBuddy] log write failed", e);
+    }
   }
 
   private scheduleFullSync() {
@@ -260,10 +289,13 @@ export default class TaskBuddyPlugin extends Plugin {
           if (t.dueAt) tasks.push(t);
         }
       }
+      const titles = tasks.map((t) => `${t.title} → ${t.dueAt} (${t.vaultPath})`);
+      this.log("info", `full-sync: отправка ${tasks.length} задач`, titles);
       const res = await this.pushTasks(tasks, "full");
+      this.log(res ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res ? "" : " (ошибка ответа сервера)"}`);
       if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res ? "" : " (с ошибкой)"}`);
     } catch (e) {
-      console.error("[TaskBuddy] full sync failed", e);
+      this.log("error", "full-sync упал", String(e));
       if (showNotice) new Notice("Task Buddy: ошибка full-sync, см. консоль");
     }
   }
@@ -298,10 +330,10 @@ export default class TaskBuddyPlugin extends Plugin {
         throw: false,
       });
       if (resp.status >= 200 && resp.status < 300) return true;
-      console.error("[TaskBuddy] sync HTTP", resp.status, resp.text);
+      this.log("error", `sync HTTP ${resp.status}`, resp.text);
       return false;
     } catch (e) {
-      console.error("[TaskBuddy] sync error", e);
+      this.log("error", "sync exception", String(e));
       return false;
     }
   }
@@ -322,9 +354,14 @@ export default class TaskBuddyPlugin extends Plugin {
         }),
         throw: false,
       });
+      if (resp.status < 200 || resp.status >= 300) {
+        this.log("error", `delete HTTP ${resp.status}`, { id: obsidianId, body: resp.text });
+      } else {
+        this.log("info", `delete ok`, { id: obsidianId });
+      }
       return resp.status >= 200 && resp.status < 300;
     } catch (e) {
-      console.error("[TaskBuddy] delete error", e);
+      this.log("error", "delete exception", String(e));
       return false;
     }
   }
@@ -602,6 +639,43 @@ class TBSettingsTab extends PluginSettingTab {
       .setName("Запустить full-sync сейчас")
       .addButton((b) =>
         b.setButtonText("Sync").onClick(() => this.plugin.fullSync(true)),
+      );
+
+    containerEl.createEl("h3", { text: "Логирование" });
+
+    new Setting(containerEl)
+      .setName("Писать лог в markdown-файл")
+      .setDesc("Включи, чтобы плагин дописывал хронологию событий и ошибок в файл vault'а.")
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.enableLog).onChange(async (v) => {
+          this.plugin.settings.enableLog = v;
+          await this.plugin.saveSettings();
+          if (v) this.plugin.log("info", "лог включён");
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Путь файла лога")
+      .setDesc("Относительно корня vault. По умолчанию: TaskBuddy-log.md")
+      .addText((t) =>
+        t.setValue(this.plugin.settings.logFile).onChange(async (v) => {
+          this.plugin.settings.logFile = v.trim() || "TaskBuddy-log.md";
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Открыть лог")
+      .addButton((b) =>
+        b.setButtonText("Открыть").onClick(async () => {
+          const path = this.plugin.settings.logFile || "TaskBuddy-log.md";
+          const f = this.plugin.app.vault.getAbstractFileByPath(path);
+          if (f instanceof TFile) {
+            await this.plugin.app.workspace.getLeaf(true).openFile(f);
+          } else {
+            new Notice(`Файл ${path} ещё не создан — включи лог и сделай sync.`);
+          }
+        }),
       );
   }
 }
