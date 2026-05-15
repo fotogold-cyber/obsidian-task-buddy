@@ -354,9 +354,14 @@ export default class TaskBuddyPlugin extends Plugin {
         }),
         throw: false,
       });
+      if (resp.status < 200 || resp.status >= 300) {
+        this.log("error", `delete HTTP ${resp.status}`, { id: obsidianId, body: resp.text });
+      } else {
+        this.log("info", `delete ok`, { id: obsidianId });
+      }
       return resp.status >= 200 && resp.status < 300;
     } catch (e) {
-      console.error("[TaskBuddy] delete error", e);
+      this.log("error", "delete exception", String(e));
       return false;
     }
   }
