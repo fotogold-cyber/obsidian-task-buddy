@@ -117,6 +117,31 @@ export default class TaskBuddyPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  /* ----------------------------- Logging --------------------------------- */
+  async log(level: "info" | "warn" | "error", msg: string, data?: unknown) {
+    const line = `- \`${new Date().toISOString()}\` **${level.toUpperCase()}** ${msg}` +
+      (data !== undefined ? `\n  \`\`\`json\n  ${JSON.stringify(data, null, 2).replace(/\n/g, "\n  ")}\n  \`\`\`` : "");
+    // Always log to console
+    if (level === "error") console.error("[TaskBuddy]", msg, data ?? "");
+    else if (level === "warn") console.warn("[TaskBuddy]", msg, data ?? "");
+    else console.log("[TaskBuddy]", msg, data ?? "");
+
+    if (!this.settings.enableLog) return;
+    const path = (this.settings.logFile || "TaskBuddy-log.md").trim();
+    if (!path) return;
+    try {
+      const existing = this.app.vault.getAbstractFileByPath(path);
+      if (existing && existing instanceof TFile) {
+        const cur = await this.app.vault.read(existing);
+        await this.app.vault.modify(existing, cur + "\n" + line);
+      } else {
+        await this.app.vault.create(path, `# Task Buddy log\n\n${line}`);
+      }
+    } catch (e) {
+      console.error("[TaskBuddy] log write failed", e);
+    }
+  }
+
   private scheduleFullSync() {
     if (this.fullSyncTimer) window.clearInterval(this.fullSyncTimer);
     const ms = Math.max(5, this.settings.fullSyncIntervalMin) * 60 * 1000;
