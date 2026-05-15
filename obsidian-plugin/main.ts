@@ -171,7 +171,7 @@ export default class TaskBuddyPlugin extends Plugin {
     await this.openSchedulerForLine(file, line);
   }
 
-  private async openSchedulerForLine(file: TFile, line: number) {
+  async openSchedulerForLine(file: TFile, line: number) {
     const content = await this.app.vault.read(file);
     const lines = content.split("\n");
     const raw = lines[line] ?? "";
