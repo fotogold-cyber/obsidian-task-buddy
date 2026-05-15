@@ -611,3 +611,100 @@ class TBSettingsTab extends PluginSettingTab {
       );
   }
 }
+
+/* ============================================================
+ * CodeMirror 6 extension: hide <!--tb:...--> meta and render a
+ * clickable widget at end of every checklist line.
+ * ============================================================ */
+
+class DotsWidget extends WidgetType {
+  constructor(
+    private readonly hasReminder: boolean,
+    private readonly onClick: () => void,
+  ) {
+    super();
+  }
+  eq(other: DotsWidget): boolean {
+    return other.hasReminder === this.hasReminder;
+  }
+  toDOM(): HTMLElement {
+    const span = document.createElement("span");
+    span.className = "tb-meta-dots" + (this.hasReminder ? " tb-meta-dots-active" : "");
+    span.textContent = this.hasReminder ? "🔔" : "⋯";
+    span.setAttribute("contenteditable", "false");
+    span.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    span.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.onClick();
+    });
+    return span;
+  }
+  ignoreEvent(): boolean {
+    return true;
+  }
+}
+
+function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
+  const decorate = (view: EditorView): DecorationSet => {
+    const builder = new RangeSetBuilder<Decoration>();
+    const doc = view.state.doc;
+    for (const { from, to } of view.visibleRanges) {
+      let pos = from;
+      while (pos <= to) {
+        const line = doc.lineAt(pos);
+        const text = line.text;
+        const taskMatch = text.match(CHECK_RE);
+        if (taskMatch) {
+          // 1) Hide the meta comment, if present
+          const metaMatch = META_RE.exec(text);
+          let hasReminder = false;
+          if (metaMatch && typeof metaMatch.index === "number") {
+            hasReminder = true;
+            const metaIdx = metaMatch.index;
+            const start = line.from + metaIdx;
+            const end = start + metaMatch[0].length;
+            // Also swallow a single leading space so we don't leave a trailing gap.
+            const leading = metaIdx > 0 && text[metaIdx - 1] === " " ? 1 : 0;
+            builder.add(start - leading, end, Decoration.replace({}));
+          }
+
+          // 2) Append a ⋯ / 🔔 widget at the end of the line
+          const lineNumber = line.number - 1; // CM is 1-indexed, Obsidian editor is 0-indexed
+          builder.add(
+            line.to,
+            line.to,
+            Decoration.widget({
+              widget: new DotsWidget(hasReminder, () => {
+                const mdView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
+                const file = mdView?.file;
+                if (file) plugin.openSchedulerForLine(file, lineNumber);
+              }),
+              side: 1,
+            }),
+          );
+        }
+        pos = line.to + 1;
+      }
+    }
+    return builder.finish();
+  };
+
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+      constructor(view: EditorView) {
+        this.decorations = decorate(view);
+      }
+      update(u: ViewUpdate) {
+        if (u.docChanged || u.viewportChanged || u.selectionSet) {
+          this.decorations = decorate(u.view);
+        }
+      }
+    },
+    { decorations: (v) => v.decorations },
+  );
+}
