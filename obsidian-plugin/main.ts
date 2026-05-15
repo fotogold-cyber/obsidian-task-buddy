@@ -231,7 +231,10 @@ export default class TaskBuddyPlugin extends Plugin {
       if (result.action === "delete") {
         await this.pushDelete(parsed.obsidianId);
       } else {
-        await this.pushTasks([updated], "push");
+        const pushed = await this.pushTasks([updated], "push");
+        if (!pushed.ok) {
+          new Notice("Напоминание сохранено в Obsidian, но не дошло до сайта — см. лог Task Buddy");
+        }
       }
     }).open();
   }
@@ -584,6 +587,27 @@ class ScheduleSheet {
     const h = String(d.getHours()).padStart(2, "0");
     const m = String(d.getMinutes()).padStart(2, "0");
     return `${h}:${m}`;
+  }
+}
+
+function reminderLabelFromLine(text: string): string | null {
+  const metaMatch = META_RE.exec(text);
+  if (!metaMatch) return null;
+  try {
+    const meta = JSON.parse(metaMatch[1]);
+    if (typeof meta.d !== "string") return "🔔";
+    const d = new Date(meta.d);
+    if (Number.isNaN(d.getTime())) return "🔔";
+    const today = new Date();
+    const sameDay =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    if (sameDay) return `🔔 ${time}`;
+    return `🔔 ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")} ${time}`;
+  } catch (_) {
+    return "🔔";
   }
 }
 
