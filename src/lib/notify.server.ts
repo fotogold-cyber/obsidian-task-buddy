@@ -54,9 +54,13 @@ function formatDue(due: string) {
   return `<b>${time}</b> (через ~${h} ч)`;
 }
 
-function buildObsidianLink(vaultName: string | null, vaultPath: string | null) {
+function buildObsidianLink(vaultName: string | null, vaultPath: string | null, obsidianId?: string) {
   if (!vaultName || !vaultPath) return null;
-  const direct = `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(vaultPath)}`;
+  const lineMatch = obsidianId?.match(/#L(\d+)$/);
+  const line = lineMatch ? Number(lineMatch[1]) + 1 : null;
+  const direct =
+    `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(vaultPath)}` +
+    (line ? `&line=${line}` : "");
   return `https://obsidian-task-buddy.lovable.app/api/public/obsidian/open?target=${encodeURIComponent(direct)}`;
 }
 
@@ -76,7 +80,7 @@ export async function runNotifyOnce() {
   const nowIso = new Date().toISOString();
   const { data: due, error: dueErr } = await supabase
     .from("tasks")
-    .select("id, title, due_at, notify_minutes_before, vault_path, vault_name")
+    .select("id, obsidian_id, title, due_at, notify_minutes_before, vault_path, vault_name")
     .eq("completed", false)
     .is("notified_at", null)
     .not("due_at", "is", null)
@@ -92,7 +96,7 @@ export async function runNotifyOnce() {
   let sent = 0;
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const t of ready) {
-    const link = buildObsidianLink(t.vault_name, t.vault_path);
+    const link = buildObsidianLink(t.vault_name, t.vault_path, t.obsidian_id);
     const text =
       `⏰ <b>${escapeHtml(t.title)}</b>\n` +
       `Дедлайн: ${formatDue(t.due_at!)}` +
