@@ -132,17 +132,10 @@ export default class TaskBuddyPlugin extends Plugin {
     if (!view?.file) return;
     const file = view.file;
 
-    // 1) Click on the checkbox itself
-    const checkbox = target.closest<HTMLInputElement>("input.task-list-item-checkbox");
-    if (checkbox) {
-      const lineAttr = checkbox.getAttribute("data-line");
-      const line = lineAttr ? parseInt(lineAttr, 10) : this.findLineForCheckbox(view, checkbox);
-      if (line == null || isNaN(line)) return;
-      window.setTimeout(() => this.openSchedulerForLine(file, line), 30);
-      return;
-    }
+    // Never open scheduler when user clicks the checkbox itself — that toggles done.
+    if (target.closest("input.task-list-item-checkbox")) return;
 
-    // 2) Click on text of a rendered task line (Reading mode <li class="task-list-item">)
+    // Open scheduler only when clicking the task text (Reading mode <li class="task-list-item">).
     const li = target.closest<HTMLElement>("li.task-list-item");
     if (li) {
       // ignore link clicks etc.
