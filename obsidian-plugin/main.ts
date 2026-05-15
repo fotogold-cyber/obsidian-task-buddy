@@ -57,6 +57,12 @@ interface ParsedTask {
   rawLine: string;
 }
 
+type SyncResponse = {
+  ok: boolean;
+  status: number;
+  body?: string;
+};
+
 /* line meta block we append at end of checklist line:
    - [ ] Task text  <!--tb:{"d":"2026-05-15T15:00:00.000Z","m":15,"id":"abc"}-->
 */
@@ -225,7 +231,10 @@ export default class TaskBuddyPlugin extends Plugin {
       if (result.action === "delete") {
         await this.pushDelete(parsed.obsidianId);
       } else {
-        await this.pushTasks([updated], "push");
+        const pushed = await this.pushTasks([updated], "push");
+        if (!pushed.ok) {
+          new Notice("Напоминание сохранено в Obsidian, но не дошло до сайта — см. лог Task Buddy");
+        }
       }
     }).open();
   }
@@ -292,27 +301,28 @@ export default class TaskBuddyPlugin extends Plugin {
       const titles = tasks.map((t) => `${t.title} → ${t.dueAt} (${t.vaultPath})`);
       this.log("info", `full-sync: отправка ${tasks.length} задач`, titles);
       const res = await this.pushTasks(tasks, "full");
-      this.log(res ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res ? "" : " (ошибка ответа сервера)"}`);
-      if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res ? "" : " (с ошибкой)"}`);
+      this.log(res.ok ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res.ok ? "" : ` (HTTP ${res.status})`}`, res.body);
+      if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res.ok ? "" : ` (HTTP ${res.status})`}`);
     } catch (e) {
       this.log("error", "full-sync упал", String(e));
       if (showNotice) new Notice("Task Buddy: ошибка full-sync, см. консоль");
     }
   }
 
-  private async pushTasks(tasks: ParsedTask[], mode: "push" | "full"): Promise<boolean> {
+  private async pushTasks(tasks: ParsedTask[], mode: "push" | "full"): Promise<SyncResponse> {
     if (!this.settings.apiKey) {
       new Notice("Task Buddy: нет API key");
-      return false;
+      return { ok: false, status: 0, body: "missing api key" };
     }
     const url = `${this.settings.apiBase.replace(/\/$/, "")}/api/public/tasks/sync`;
     try {
+      const apiKey = this.settings.apiKey.trim();
       const resp = await requestUrl({
         url,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": this.settings.apiKey,
+          "x-api-key": apiKey,
         },
         body: JSON.stringify({
           mode,
@@ -329,12 +339,17 @@ export default class TaskBuddyPlugin extends Plugin {
         }),
         throw: false,
       });
-      if (resp.status >= 200 && resp.status < 300) return true;
-      this.log("error", `sync HTTP ${resp.status}`, resp.text);
-      return false;
+      if (resp.status >= 200 && resp.status < 300) {
+        this.log("info", `sync ok: ${mode}, ${tasks.length} задач`, resp.text);
+        return { ok: true, status: resp.status, body: resp.text };
+      }
+      const hint = resp.status === 401 ? " — проверь API key в настройках плагина и на сайте" : "";
+      this.log("error", `sync HTTP ${resp.status}${hint}`, resp.text);
+      new Notice(`Task Buddy: sync HTTP ${resp.status}${hint}`);
+      return { ok: false, status: resp.status, body: resp.text };
     } catch (e) {
       this.log("error", "sync exception", String(e));
-      return false;
+      return { ok: false, status: 0, body: String(e) };
     }
   }
 
@@ -575,6 +590,27 @@ class ScheduleSheet {
   }
 }
 
+function reminderLabelFromLine(text: string): string | null {
+  const metaMatch = META_RE.exec(text);
+  if (!metaMatch) return null;
+  try {
+    const meta = JSON.parse(metaMatch[1]);
+    if (typeof meta.d !== "string") return "🔔";
+    const d = new Date(meta.d);
+    if (Number.isNaN(d.getTime())) return "🔔";
+    const today = new Date();
+    const sameDay =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+    const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+    if (sameDay) return `🔔 ${time}`;
+    return `🔔 ${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")} ${time}`;
+  } catch (_) {
+    return "🔔";
+  }
+}
+
 /* ============================================================
  * Settings tab
  * ============================================================ */
@@ -687,18 +723,18 @@ class TBSettingsTab extends PluginSettingTab {
 
 class DotsWidget extends WidgetType {
   constructor(
-    private readonly hasReminder: boolean,
+    private readonly reminderLabel: string | null,
     private readonly onClick: () => void,
   ) {
     super();
   }
   eq(other: DotsWidget): boolean {
-    return other.hasReminder === this.hasReminder;
+    return other.reminderLabel === this.reminderLabel;
   }
   toDOM(): HTMLElement {
     const span = document.createElement("span");
-    span.className = "tb-meta-dots" + (this.hasReminder ? " tb-meta-dots-active" : "");
-    span.textContent = this.hasReminder ? "🔔" : "⋯";
+    span.className = "tb-meta-dots" + (this.reminderLabel ? " tb-meta-dots-active" : "");
+    span.textContent = this.reminderLabel ?? "⋯";
     span.setAttribute("contenteditable", "false");
     span.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -729,9 +765,8 @@ function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
         if (taskMatch) {
           // 1) Hide the meta comment, if present
           const metaMatch = META_RE.exec(text);
-          let hasReminder = false;
+          const reminderLabel = reminderLabelFromLine(text);
           if (metaMatch && typeof metaMatch.index === "number") {
-            hasReminder = true;
             const metaIdx = metaMatch.index;
             const start = line.from + metaIdx;
             const end = start + metaMatch[0].length;
@@ -746,7 +781,7 @@ function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
             line.to,
             line.to,
             Decoration.widget({
-              widget: new DotsWidget(hasReminder, () => {
+              widget: new DotsWidget(reminderLabel, () => {
                 const mdView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
                 const file = mdView?.file;
                 if (file) plugin.openSchedulerForLine(file, lineNumber);
