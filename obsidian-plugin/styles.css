@@ -203,3 +203,14 @@
   padding: 2px 8px;
 }
 .tb-meta-dots-active:hover { filter: brightness(1.1); }
+
+/* Desktop: hide ⋯ until hover; if reminder is set (.tb-meta-dots-active) always show. */
+body:not(.is-mobile) .tb-meta-dots:not(.tb-meta-dots-active) {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+body:not(.is-mobile) li.task-list-item:hover .tb-meta-dots,
+body:not(.is-mobile) .HyperMD-task-line:hover .tb-meta-dots,
+body:not(.is-mobile) .cm-line:hover .tb-meta-dots {
+  opacity: 1;
+}
