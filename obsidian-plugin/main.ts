@@ -586,7 +586,7 @@ class ScheduleSheet {
     }
     const wrap = this.overlay.querySelector<HTMLElement>('[data-role="picker"]');
     if (wrap) wrap.style.display = "block";
-    window.setTimeout(() => this.dateInput.focus(), 50);
+    if (!Platform.isMobile) window.setTimeout(() => this.dateInput.focus(), 50);
   }
 
   private commit() {
