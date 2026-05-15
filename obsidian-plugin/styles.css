@@ -28,11 +28,11 @@
 }
 
 /* Mobile: stick to bottom like Google Tasks */
-.is-mobile .tb-sheet-overlay {
+.tb-sheet-overlay.is-mobile {
   align-items: flex-end;
   padding: 0;
 }
-.is-mobile .tb-sheet {
+.tb-sheet-overlay.is-mobile .tb-sheet {
   max-width: 100%;
   border-radius: 16px 16px 0 0;
   padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
@@ -198,5 +198,8 @@
 .tb-meta-dots-active {
   color: var(--text-on-accent);
   background: var(--interactive-accent);
+  font-size: 12px;
+  letter-spacing: 0;
+  padding: 2px 8px;
 }
 .tb-meta-dots-active:hover { filter: brightness(1.1); }
