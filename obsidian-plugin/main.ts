@@ -436,16 +436,12 @@ class ScheduleSheet {
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close({ action: "cancel" });
     });
-  }
+    // Tapping anywhere on the sheet (outside an input) also dismisses keyboard.
+    this.overlay.addEventListener("touchstart", (e) => {
+      const t = e.target as HTMLElement | null;
+      if (t && !t.closest("input")) this.dismissKeyboard();
+    }, { passive: true });
 
-  private dismissKeyboard() {
-    const ae = document.activeElement as HTMLElement | null;
-    if (ae && typeof ae.blur === "function") ae.blur();
-    // Force-blur inputs inside the sheet too (covers date/time/number on iOS).
-    this.overlay?.querySelectorAll<HTMLInputElement>("input").forEach((el) => el.blur());
-  }
-
-  private _legacyOpenMarker() {
 
     const sheet = document.createElement("div");
     sheet.className = "tb-sheet";
