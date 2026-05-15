@@ -10,6 +10,15 @@ import {
   requestUrl,
   Platform,
 } from "obsidian";
+import {
+  ViewPlugin,
+  ViewUpdate,
+  Decoration,
+  DecorationSet,
+  EditorView,
+  WidgetType,
+} from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
 
 /* ============================================================
  * Settings
