@@ -113,6 +113,7 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
             notify_minutes_before: newNotify,
             completed: t.completed ?? false,
             vault_path: t.vault_path ?? null,
+            vault_name: t.vault_name ?? null,
             ...(notified_at === null ? { notified_at: null } : {}),
           };
         });
