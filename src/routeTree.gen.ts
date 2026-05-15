@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicTasksSyncRouteImport } from './routes/api/public/tasks/sync'
+import { Route as ApiPublicCronNotifyRouteImport } from './routes/api/public/cron/notify'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,30 +23,39 @@ const ApiPublicTasksSyncRoute = ApiPublicTasksSyncRouteImport.update({
   path: '/api/public/tasks/sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCronNotifyRoute = ApiPublicCronNotifyRouteImport.update({
+  id: '/api/public/cron/notify',
+  path: '/api/public/cron/notify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/tasks/sync'
+  fullPaths: '/' | '/api/public/cron/notify' | '/api/public/tasks/sync'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/tasks/sync'
-  id: '__root__' | '/' | '/api/public/tasks/sync'
+  to: '/' | '/api/public/cron/notify' | '/api/public/tasks/sync'
+  id: '__root__' | '/' | '/api/public/cron/notify' | '/api/public/tasks/sync'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicCronNotifyRoute: typeof ApiPublicCronNotifyRoute
   ApiPublicTasksSyncRoute: typeof ApiPublicTasksSyncRoute
 }
 
@@ -65,11 +75,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTasksSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/notify': {
+      id: '/api/public/cron/notify'
+      path: '/api/public/cron/notify'
+      fullPath: '/api/public/cron/notify'
+      preLoaderRoute: typeof ApiPublicCronNotifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicCronNotifyRoute: ApiPublicCronNotifyRoute,
   ApiPublicTasksSyncRoute: ApiPublicTasksSyncRoute,
 }
 export const routeTree = rootRouteImport
