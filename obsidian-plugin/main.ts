@@ -489,7 +489,9 @@ class ScheduleSheet {
     timeLabel.textContent = "Время";
     this.timeInput = document.createElement("input");
     this.timeInput.type = "time";
-    this.timeInput.addEventListener("change", () => this.timeInput.blur());
+    this.timeInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") this.timeInput.blur();
+    });
     timeRow.appendChild(timeLabel);
     timeRow.appendChild(this.timeInput);
 
