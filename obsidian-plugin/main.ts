@@ -330,10 +330,10 @@ export default class TaskBuddyPlugin extends Plugin {
         throw: false,
       });
       if (resp.status >= 200 && resp.status < 300) return true;
-      console.error("[TaskBuddy] sync HTTP", resp.status, resp.text);
+      this.log("error", `sync HTTP ${resp.status}`, resp.text);
       return false;
     } catch (e) {
-      console.error("[TaskBuddy] sync error", e);
+      this.log("error", "sync exception", String(e));
       return false;
     }
   }
