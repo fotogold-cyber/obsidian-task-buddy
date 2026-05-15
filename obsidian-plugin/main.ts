@@ -72,8 +72,10 @@ export default class TaskBuddyPlugin extends Plugin {
     this.addSettingTab(new TBSettingsTab(this.app, this));
 
     // Click handler — work in both Reading and Live Preview / Source modes.
-    // We listen on the workspace container for clicks on checkbox lines.
     this.registerDomEvent(document, "click", this.onDocumentClick);
+
+    // CM6 extension: hide <!--tb:...--> meta and render a clickable ⋯ / 🔔 widget
+    this.registerEditorExtension(buildTaskBuddyCMExtension(this));
 
     // Command: open scheduler for current line
     this.addCommand({
