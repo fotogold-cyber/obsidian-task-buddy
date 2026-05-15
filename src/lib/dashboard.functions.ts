@@ -96,20 +96,6 @@ export const triggerNotifyNow = createServerFn({ method: "POST" })
   .inputValidator((input) => KeyInput.parse(input))
   .handler(async ({ data }) => {
     checkKey(data.apiKey);
-    // Call our own cron endpoint
-    const url = `${process.env.SUPABASE_URL!.replace(/\/+$/, "")}`; // not used
-    // Instead, do the work inline by importing — simpler: hit the public URL
-    const projectUrl = process.env.PROJECT_PUBLIC_URL;
-    if (!projectUrl) {
-      // Fallback: do it by reusing the same logic via fetch to relative url isn't possible server-side without host.
-      // Use the explicit project URL env if set, otherwise instruct user.
-      throw new Error("Set PROJECT_PUBLIC_URL or trigger via curl. See dashboard help.");
-    }
-    const res = await fetch(`${projectUrl}/api/public/cron/notify`, {
-      method: "POST",
-      headers: { apikey: process.env.SUPABASE_PUBLISHABLE_KEY! },
-    });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(`Cron failed [${res.status}]: ${JSON.stringify(body)}`);
-    return body;
+    const { runNotifyOnce } = await import("@/lib/notify.server");
+    return runNotifyOnce();
   });
