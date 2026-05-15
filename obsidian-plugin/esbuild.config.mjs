@@ -7,7 +7,14 @@ const prod = process.argv[2] === "production";
 const ctx = await esbuild.context({
   entryPoints: ["main.ts"],
   bundle: true,
-  external: ["obsidian", "electron", ...builtins],
+  external: [
+    "obsidian",
+    "electron",
+    "@codemirror/view",
+    "@codemirror/state",
+    "@codemirror/language",
+    ...builtins,
+  ],
   format: "cjs",
   target: "es2018",
   logLevel: "info",
