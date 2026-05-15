@@ -723,18 +723,18 @@ class TBSettingsTab extends PluginSettingTab {
 
 class DotsWidget extends WidgetType {
   constructor(
-    private readonly hasReminder: boolean,
+    private readonly reminderLabel: string | null,
     private readonly onClick: () => void,
   ) {
     super();
   }
   eq(other: DotsWidget): boolean {
-    return other.hasReminder === this.hasReminder;
+    return other.reminderLabel === this.reminderLabel;
   }
   toDOM(): HTMLElement {
     const span = document.createElement("span");
-    span.className = "tb-meta-dots" + (this.hasReminder ? " tb-meta-dots-active" : "");
-    span.textContent = this.hasReminder ? "🔔" : "⋯";
+    span.className = "tb-meta-dots" + (this.reminderLabel ? " tb-meta-dots-active" : "");
+    span.textContent = this.reminderLabel ?? "⋯";
     span.setAttribute("contenteditable", "false");
     span.addEventListener("mousedown", (e) => {
       e.preventDefault();
@@ -765,9 +765,8 @@ function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
         if (taskMatch) {
           // 1) Hide the meta comment, if present
           const metaMatch = META_RE.exec(text);
-          let hasReminder = false;
+          const reminderLabel = reminderLabelFromLine(text);
           if (metaMatch && typeof metaMatch.index === "number") {
-            hasReminder = true;
             const metaIdx = metaMatch.index;
             const start = line.from + metaIdx;
             const end = start + metaMatch[0].length;
@@ -782,7 +781,7 @@ function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {
             line.to,
             line.to,
             Decoration.widget({
-              widget: new DotsWidget(hasReminder, () => {
+              widget: new DotsWidget(reminderLabel, () => {
                 const mdView = plugin.app.workspace.getActiveViewOfType(MarkdownView);
                 const file = mdView?.file;
                 if (file) plugin.openSchedulerForLine(file, lineNumber);
