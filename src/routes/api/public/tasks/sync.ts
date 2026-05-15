@@ -9,6 +9,7 @@ const UpsertTaskSchema = z.object({
   notify_minutes_before: z.number().int().min(0).max(60 * 24 * 30).optional(),
   completed: z.boolean().optional(),
   vault_path: z.string().max(2000).nullable().optional(),
+  vault_name: z.string().max(255).nullable().optional(),
   _delete: z.literal(false).optional(),
 });
 
@@ -112,6 +113,7 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
             notify_minutes_before: newNotify,
             completed: t.completed ?? false,
             vault_path: t.vault_path ?? null,
+            vault_name: t.vault_name ?? null,
             ...(notified_at === null ? { notified_at: null } : {}),
           };
         });

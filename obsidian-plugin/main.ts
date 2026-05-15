@@ -292,6 +292,7 @@ export default class TaskBuddyPlugin extends Plugin {
             due_at: t.dueAt,
             notify_minutes_before: t.notifyMinutesBefore,
             vault_path: t.vaultPath,
+            vault_name: this.app.vault.getName(),
           })),
         }),
         throw: false,

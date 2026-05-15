@@ -69,7 +69,7 @@ export async function runNotifyOnce() {
   const nowIso = new Date().toISOString();
   const { data: due, error: dueErr } = await supabase
     .from("tasks")
-    .select("id, title, due_at, notify_minutes_before, vault_path")
+    .select("id, title, due_at, notify_minutes_before, vault_path, vault_name")
     .eq("completed", false)
     .is("notified_at", null)
     .not("due_at", "is", null)
@@ -85,10 +85,15 @@ export async function runNotifyOnce() {
   let sent = 0;
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const t of ready) {
+    const link =
+      t.vault_name && t.vault_path
+        ? `obsidian://open?vault=${encodeURIComponent(t.vault_name)}&file=${encodeURIComponent(t.vault_path)}`
+        : null;
     const text =
       `⏰ <b>${escapeHtml(t.title)}</b>\n` +
       `Дедлайн: ${formatDue(t.due_at!)}` +
-      (t.vault_path ? `\n📄 <i>${escapeHtml(t.vault_path)}</i>` : "");
+      (t.vault_path ? `\n📄 <i>${escapeHtml(t.vault_path)}</i>` : "") +
+      (link ? `\n<a href="${link}">Открыть в Obsidian</a>` : "");
     try {
       await sendTelegram(chatId, text);
       await supabase.from("tasks").update({ notified_at: nowIso }).eq("id", t.id);
