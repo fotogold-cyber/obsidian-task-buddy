@@ -427,11 +427,25 @@ class ScheduleSheet {
   ) {}
 
   open() {
+    // iOS: dismiss the editor keyboard before showing the sheet, otherwise
+    // it covers the date/time pickers and "Готово".
+    this.dismissKeyboard();
+
     this.overlay = document.createElement("div");
     this.overlay.className = "tb-sheet-overlay" + (Platform.isMobile ? " is-mobile" : "");
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close({ action: "cancel" });
     });
+  }
+
+  private dismissKeyboard() {
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && typeof ae.blur === "function") ae.blur();
+    // Force-blur inputs inside the sheet too (covers date/time/number on iOS).
+    this.overlay?.querySelectorAll<HTMLInputElement>("input").forEach((el) => el.blur());
+  }
+
+  private _legacyOpenMarker() {
 
     const sheet = document.createElement("div");
     sheet.className = "tb-sheet";
