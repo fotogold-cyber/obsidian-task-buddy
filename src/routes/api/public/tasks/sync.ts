@@ -93,6 +93,8 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
           (existing ?? []).map((r) => [r.obsidian_id as string, r]),
         );
 
+        const STALE_MINUTES = 60;
+        const nowMs = Date.now();
         const rows = upserts.map((t) => {
           const prev = existingMap.get(t.obsidian_id);
           const newDue = t.due_at ?? null;
@@ -106,6 +108,15 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
           ) {
             notified_at = null;
           }
+          // Brand-new task whose due_at is already stale (>60 min in the past):
+          // most likely a vault-sync resurrection (Google Drive lag between devices).
+          // Pre-suppress alert so cron doesn't fire on import.
+          if (!prev && newDue) {
+            const dueMs = new Date(newDue).getTime();
+            if (nowMs - dueMs > STALE_MINUTES * 60_000) {
+              notified_at = new Date().toISOString();
+            }
+          }
           return {
             obsidian_id: t.obsidian_id,
             title: t.title,
@@ -114,7 +125,7 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
             completed: t.completed ?? false,
             vault_path: t.vault_path ?? null,
             vault_name: t.vault_name ?? null,
-            ...(notified_at === null ? { notified_at: null } : {}),
+            ...(notified_at !== undefined ? { notified_at } : {}),
           };
         });
 
