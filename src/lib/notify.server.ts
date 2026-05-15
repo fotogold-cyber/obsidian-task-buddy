@@ -87,11 +87,34 @@ export async function runNotifyOnce() {
     .limit(200);
   if (dueErr) throw new Error(dueErr.message);
 
-  const ready = (due ?? []).filter((t) => {
-    if (!t.due_at) return false;
-    const triggerAt = new Date(t.due_at).getTime() - (t.notify_minutes_before ?? 15) * 60_000;
-    return triggerAt <= Date.now();
-  });
+  // Stale guard: don't fire alerts for tasks more than STALE_MINUTES past due.
+  // Protects against vault re-sync (e.g. Google Drive lag between iPhone/Windows)
+  // resurrecting old completed tasks and re-triggering notifications.
+  const STALE_MINUTES = 60;
+  const ready: typeof due = [];
+  const stale: typeof due = [];
+  for (const t of due ?? []) {
+    if (!t.due_at) continue;
+    const dueMs = new Date(t.due_at).getTime();
+    const triggerAt = dueMs - (t.notify_minutes_before ?? 15) * 60_000;
+    if (triggerAt > Date.now()) continue;
+    if (Date.now() - dueMs > STALE_MINUTES * 60_000) {
+      stale.push(t);
+    } else {
+      ready.push(t);
+    }
+  }
+
+  // Suppress stale: mark notified_at so cron never re-considers them, log as skipped.
+  for (const t of stale) {
+    await supabase.from("tasks").update({ notified_at: nowIso }).eq("id", t.id);
+    await supabase.from("notification_log").insert({
+      task_id: t.id,
+      task_title: t.title,
+      status: "skipped_stale",
+      error: `due ${Math.round((Date.now() - new Date(t.due_at!).getTime()) / 60000)} мин назад`,
+    });
+  }
 
   let sent = 0;
   const results: Array<{ id: string; status: string; error?: string }> = [];
@@ -121,5 +144,12 @@ export async function runNotifyOnce() {
     }
   }
 
-  return { ok: true, checked: due?.length ?? 0, ready: ready.length, sent, results };
+  return {
+    ok: true,
+    checked: due?.length ?? 0,
+    ready: ready.length,
+    sent,
+    skipped_stale: stale.length,
+    results,
+  };
 }
