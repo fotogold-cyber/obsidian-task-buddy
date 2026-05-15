@@ -56,7 +56,8 @@ function formatDue(due: string) {
 
 function buildObsidianLink(vaultName: string | null, vaultPath: string | null) {
   if (!vaultName || !vaultPath) return null;
-  return `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(vaultPath)}`;
+  const direct = `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(vaultPath)}`;
+  return `https://obsidian-task-buddy.lovable.app/api/public/obsidian/open?target=${encodeURIComponent(direct)}`;
 }
 
 export async function runNotifyOnce() {
