@@ -289,10 +289,13 @@ export default class TaskBuddyPlugin extends Plugin {
           if (t.dueAt) tasks.push(t);
         }
       }
+      const titles = tasks.map((t) => `${t.title} → ${t.dueAt} (${t.vaultPath})`);
+      this.log("info", `full-sync: отправка ${tasks.length} задач`, titles);
       const res = await this.pushTasks(tasks, "full");
+      this.log(res ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res ? "" : " (ошибка ответа сервера)"}`);
       if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res ? "" : " (с ошибкой)"}`);
     } catch (e) {
-      console.error("[TaskBuddy] full sync failed", e);
+      this.log("error", "full-sync упал", String(e));
       if (showNotice) new Notice("Task Buddy: ошибка full-sync, см. консоль");
     }
   }
