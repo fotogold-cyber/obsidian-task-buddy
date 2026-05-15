@@ -354,7 +354,7 @@ class ScheduleSheet {
 
   open() {
     this.overlay = document.createElement("div");
-    this.overlay.className = "tb-sheet-overlay";
+    this.overlay.className = "tb-sheet-overlay" + (Platform.isMobile ? " is-mobile" : "");
     this.overlay.addEventListener("click", (e) => {
       if (e.target === this.overlay) this.close({ action: "cancel" });
     });
