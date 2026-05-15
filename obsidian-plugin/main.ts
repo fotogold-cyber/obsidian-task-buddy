@@ -57,6 +57,12 @@ interface ParsedTask {
   rawLine: string;
 }
 
+type SyncResponse = {
+  ok: boolean;
+  status: number;
+  body?: string;
+};
+
 /* line meta block we append at end of checklist line:
    - [ ] Task text  <!--tb:{"d":"2026-05-15T15:00:00.000Z","m":15,"id":"abc"}-->
 */
@@ -292,27 +298,28 @@ export default class TaskBuddyPlugin extends Plugin {
       const titles = tasks.map((t) => `${t.title} → ${t.dueAt} (${t.vaultPath})`);
       this.log("info", `full-sync: отправка ${tasks.length} задач`, titles);
       const res = await this.pushTasks(tasks, "full");
-      this.log(res ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res ? "" : " (ошибка ответа сервера)"}`);
-      if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res ? "" : " (с ошибкой)"}`);
+      this.log(res.ok ? "info" : "error", `full-sync завершён: ${tasks.length} задач${res.ok ? "" : ` (HTTP ${res.status})`}`, res.body);
+      if (showNotice) new Notice(`Task Buddy: синхронизировано ${tasks.length} задач${res.ok ? "" : ` (HTTP ${res.status})`}`);
     } catch (e) {
       this.log("error", "full-sync упал", String(e));
       if (showNotice) new Notice("Task Buddy: ошибка full-sync, см. консоль");
     }
   }
 
-  private async pushTasks(tasks: ParsedTask[], mode: "push" | "full"): Promise<boolean> {
+  private async pushTasks(tasks: ParsedTask[], mode: "push" | "full"): Promise<SyncResponse> {
     if (!this.settings.apiKey) {
       new Notice("Task Buddy: нет API key");
-      return false;
+      return { ok: false, status: 0, body: "missing api key" };
     }
     const url = `${this.settings.apiBase.replace(/\/$/, "")}/api/public/tasks/sync`;
     try {
+      const apiKey = this.settings.apiKey.trim();
       const resp = await requestUrl({
         url,
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key": this.settings.apiKey,
+          "x-api-key": apiKey,
         },
         body: JSON.stringify({
           mode,
@@ -329,12 +336,17 @@ export default class TaskBuddyPlugin extends Plugin {
         }),
         throw: false,
       });
-      if (resp.status >= 200 && resp.status < 300) return true;
-      this.log("error", `sync HTTP ${resp.status}`, resp.text);
-      return false;
+      if (resp.status >= 200 && resp.status < 300) {
+        this.log("info", `sync ok: ${mode}, ${tasks.length} задач`, resp.text);
+        return { ok: true, status: resp.status, body: resp.text };
+      }
+      const hint = resp.status === 401 ? " — проверь API key в настройках плагина и на сайте" : "";
+      this.log("error", `sync HTTP ${resp.status}${hint}`, resp.text);
+      new Notice(`Task Buddy: sync HTTP ${resp.status}${hint}`);
+      return { ok: false, status: resp.status, body: resp.text };
     } catch (e) {
       this.log("error", "sync exception", String(e));
-      return false;
+      return { ok: false, status: 0, body: String(e) };
     }
   }
 
