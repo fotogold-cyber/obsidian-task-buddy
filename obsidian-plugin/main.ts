@@ -125,30 +125,38 @@ export default class TaskBuddyPlugin extends Plugin {
     const target = evt.target as HTMLElement | null;
     if (!target) return;
 
-    // We only care about clicks ON the checkbox itself.
-    // Obsidian renders checkboxes as <input type="checkbox" class="task-list-item-checkbox"> in both modes.
-    const checkbox = target.closest<HTMLInputElement>("input.task-list-item-checkbox");
-    if (!checkbox) return;
+    // ⋯ widget handles itself (see CM6 extension); ignore here to avoid double-open.
+    if (target.closest(".tb-meta-dots")) return;
 
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view) return;
+    if (!view?.file) return;
     const file = view.file;
-    if (!file) return;
 
-    // We do NOT preventDefault — let Obsidian toggle the checkbox normally.
-    // After Obsidian's own handler runs, we open the sheet ONLY when the box was just CHECKED OFF? 
-    // The user wants: clicking on checklist → bottom sheet.
-    // We open the sheet on every click, but don't block toggling.
-    const lineAttr = checkbox.getAttribute("data-line");
-    const line = lineAttr ? parseInt(lineAttr, 10) : this.findLineForCheckbox(view, checkbox);
-    if (line == null || isNaN(line)) return;
+    // 1) Click on the checkbox itself
+    const checkbox = target.closest<HTMLInputElement>("input.task-list-item-checkbox");
+    if (checkbox) {
+      const lineAttr = checkbox.getAttribute("data-line");
+      const line = lineAttr ? parseInt(lineAttr, 10) : this.findLineForCheckbox(view, checkbox);
+      if (line == null || isNaN(line)) return;
+      window.setTimeout(() => this.openSchedulerForLine(file, line), 30);
+      return;
+    }
 
-    // Defer slightly so Obsidian's toggle finishes first
-    window.setTimeout(() => this.openSchedulerForLine(file, line), 30);
+    // 2) Click on text of a rendered task line (Reading mode <li class="task-list-item">)
+    const li = target.closest<HTMLElement>("li.task-list-item");
+    if (li) {
+      // ignore link clicks etc.
+      if (target.closest("a")) return;
+      const cb = li.querySelector<HTMLInputElement>("input.task-list-item-checkbox");
+      const lineAttr = li.getAttribute("data-line") || cb?.getAttribute("data-line") || null;
+      const line = lineAttr ? parseInt(lineAttr, 10) : null;
+      if (line == null || isNaN(line)) return;
+      this.openSchedulerForLine(file, line);
+      return;
+    }
   };
 
   private findLineForCheckbox(view: MarkdownView, _cb: HTMLInputElement): number | null {
-    // Fallback: use cursor line in editor mode
     const editor = view.editor;
     if (editor) return editor.getCursor().line;
     return null;
