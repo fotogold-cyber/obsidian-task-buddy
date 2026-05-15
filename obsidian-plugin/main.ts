@@ -29,6 +29,8 @@ interface TBSettings {
   apiKey: string;         // PLUGIN_API_KEY
   defaultLeadMinutes: number;
   fullSyncIntervalMin: number;
+  enableLog: boolean;
+  logFile: string;        // path within vault
 }
 
 const DEFAULT_SETTINGS: TBSettings = {
@@ -36,6 +38,8 @@ const DEFAULT_SETTINGS: TBSettings = {
   apiKey: "",
   defaultLeadMinutes: 15,
   fullSyncIntervalMin: 30,
+  enableLog: false,
+  logFile: "TaskBuddy-log.md",
 };
 
 /* ============================================================
