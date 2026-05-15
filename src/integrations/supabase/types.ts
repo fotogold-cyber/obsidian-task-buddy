@@ -81,6 +81,7 @@ export type Database = {
           obsidian_id: string
           title: string
           updated_at: string
+          vault_name: string | null
           vault_path: string | null
         }
         Insert: {
@@ -93,6 +94,7 @@ export type Database = {
           obsidian_id: string
           title: string
           updated_at?: string
+          vault_name?: string | null
           vault_path?: string | null
         }
         Update: {
@@ -105,6 +107,7 @@ export type Database = {
           obsidian_id?: string
           title?: string
           updated_at?: string
+          vault_name?: string | null
           vault_path?: string | null
         }
         Relationships: []
