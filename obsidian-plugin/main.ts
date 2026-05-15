@@ -640,6 +640,43 @@ class TBSettingsTab extends PluginSettingTab {
       .addButton((b) =>
         b.setButtonText("Sync").onClick(() => this.plugin.fullSync(true)),
       );
+
+    containerEl.createEl("h3", { text: "Логирование" });
+
+    new Setting(containerEl)
+      .setName("Писать лог в markdown-файл")
+      .setDesc("Включи, чтобы плагин дописывал хронологию событий и ошибок в файл vault'а.")
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.enableLog).onChange(async (v) => {
+          this.plugin.settings.enableLog = v;
+          await this.plugin.saveSettings();
+          if (v) this.plugin.log("info", "лог включён");
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Путь файла лога")
+      .setDesc("Относительно корня vault. По умолчанию: TaskBuddy-log.md")
+      .addText((t) =>
+        t.setValue(this.plugin.settings.logFile).onChange(async (v) => {
+          this.plugin.settings.logFile = v.trim() || "TaskBuddy-log.md";
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName("Открыть лог")
+      .addButton((b) =>
+        b.setButtonText("Открыть").onClick(async () => {
+          const path = this.plugin.settings.logFile || "TaskBuddy-log.md";
+          const f = this.plugin.app.vault.getAbstractFileByPath(path);
+          if (f instanceof TFile) {
+            await this.plugin.app.workspace.getLeaf(true).openFile(f);
+          } else {
+            new Notice(`Файл ${path} ещё не создан — включи лог и сделай sync.`);
+          }
+        }),
+      );
   }
 }
 
