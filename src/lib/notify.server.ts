@@ -144,5 +144,12 @@ export async function runNotifyOnce() {
     }
   }
 
-  return { ok: true, checked: due?.length ?? 0, ready: ready.length, sent, results };
+  return {
+    ok: true,
+    checked: due?.length ?? 0,
+    ready: ready.length,
+    sent,
+    skipped_stale: stale.length,
+    results,
+  };
 }
