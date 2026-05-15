@@ -92,7 +92,7 @@ export const Route = createFileRoute("/api/public/tasks/sync")({
           (existing ?? []).map((r) => [r.obsidian_id as string, r]),
         );
 
-        const rows = tasks.map((t) => {
+        const rows = upserts.map((t) => {
           const prev = existingMap.get(t.obsidian_id);
           const newDue = t.due_at ?? null;
           const newNotify = t.notify_minutes_before ?? 15;
