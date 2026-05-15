@@ -587,6 +587,7 @@ class ScheduleSheet {
   }
 
   private commit() {
+    this.dismissKeyboard();
     const dStr = this.dateInput.value;
     const tStr = this.timeInput.value || "09:00";
     if (!dStr) {
@@ -604,7 +605,14 @@ class ScheduleSheet {
     });
   }
 
+  private dismissKeyboard() {
+    const ae = document.activeElement as HTMLElement | null;
+    if (ae && typeof ae.blur === "function") ae.blur();
+    this.overlay?.querySelectorAll<HTMLInputElement>("input").forEach((el) => el.blur());
+  }
+
   private close(r: SheetResult) {
+    this.dismissKeyboard();
     this.overlay.remove();
     this.onClose(r);
   }
