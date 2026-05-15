@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicTasksSyncRouteImport } from './routes/api/public/tasks/sync'
+import { Route as ApiPublicObsidianOpenRouteImport } from './routes/api/public/obsidian/open'
 import { Route as ApiPublicCronNotifyRouteImport } from './routes/api/public/cron/notify'
 
 const IndexRoute = IndexRouteImport.update({
@@ -30,6 +31,11 @@ const ApiPublicTasksSyncRoute = ApiPublicTasksSyncRouteImport.update({
   path: '/api/public/tasks/sync',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicObsidianOpenRoute = ApiPublicObsidianOpenRouteImport.update({
+  id: '/api/public/obsidian/open',
+  path: '/api/public/obsidian/open',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicCronNotifyRoute = ApiPublicCronNotifyRouteImport.update({
   id: '/api/public/cron/notify',
   path: '/api/public/cron/notify',
@@ -39,12 +45,14 @@ const ApiPublicCronNotifyRoute = ApiPublicCronNotifyRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
+  '/api/public/obsidian/open': typeof ApiPublicObsidianOpenRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
+  '/api/public/obsidian/open': typeof ApiPublicObsidianOpenRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -52,6 +60,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/public/cron/notify': typeof ApiPublicCronNotifyRoute
+  '/api/public/obsidian/open': typeof ApiPublicObsidianOpenRoute
   '/api/public/tasks/sync': typeof ApiPublicTasksSyncRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -60,18 +69,21 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/public/cron/notify'
+    | '/api/public/obsidian/open'
     | '/api/public/tasks/sync'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/public/cron/notify'
+    | '/api/public/obsidian/open'
     | '/api/public/tasks/sync'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
     | '/'
     | '/api/public/cron/notify'
+    | '/api/public/obsidian/open'
     | '/api/public/tasks/sync'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -79,6 +91,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiPublicCronNotifyRoute: typeof ApiPublicCronNotifyRoute
+  ApiPublicObsidianOpenRoute: typeof ApiPublicObsidianOpenRoute
   ApiPublicTasksSyncRoute: typeof ApiPublicTasksSyncRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -106,6 +119,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTasksSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/obsidian/open': {
+      id: '/api/public/obsidian/open'
+      path: '/api/public/obsidian/open'
+      fullPath: '/api/public/obsidian/open'
+      preLoaderRoute: typeof ApiPublicObsidianOpenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/notify': {
       id: '/api/public/cron/notify'
       path: '/api/public/cron/notify'
@@ -119,19 +139,10 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiPublicCronNotifyRoute: ApiPublicCronNotifyRoute,
+  ApiPublicObsidianOpenRoute: ApiPublicObsidianOpenRoute,
   ApiPublicTasksSyncRoute: ApiPublicTasksSyncRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -87,6 +87,28 @@ export default class TaskBuddyPlugin extends Plugin {
     // CM6 extension: hide <!--tb:...--> meta and render a clickable ⋯ / 🔔 widget
     this.registerEditorExtension(buildTaskBuddyCMExtension(this));
 
+    // Reading mode: render the same ⋯ / 🔔 widget after Obsidian reopens a note in preview.
+    this.registerMarkdownPostProcessor(async (el, ctx) => {
+      const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+      if (!(file instanceof TFile)) return;
+
+      const content = await this.app.vault.cachedRead(file);
+      const lines = content.split("\n");
+      const usedLines = new Set<number>();
+
+      for (const li of Array.from(el.querySelectorAll<HTMLElement>("li.task-list-item"))) {
+        if (li.querySelector(".tb-meta-dots")) continue;
+        const line = resolveRenderedTaskLine(li, lines, usedLines);
+        if (line == null) continue;
+
+        const badge = createTaskBuddyBadge(reminderLabelFromLine(lines[line]), () => {
+          this.openSchedulerForLine(file, line);
+        });
+        const target = li.querySelector<HTMLElement>("p:last-child") ?? li;
+        target.appendChild(badge);
+      }
+    });
+
     // Command: open scheduler for current line
     this.addCommand({
       id: "schedule-task-current-line",
@@ -732,24 +754,58 @@ class DotsWidget extends WidgetType {
     return other.reminderLabel === this.reminderLabel;
   }
   toDOM(): HTMLElement {
-    const span = document.createElement("span");
-    span.className = "tb-meta-dots" + (this.reminderLabel ? " tb-meta-dots-active" : "");
-    span.textContent = this.reminderLabel ?? "⋯";
-    span.setAttribute("contenteditable", "false");
-    span.addEventListener("mousedown", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    span.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      this.onClick();
-    });
-    return span;
+    return createTaskBuddyBadge(this.reminderLabel, this.onClick);
   }
   ignoreEvent(): boolean {
     return true;
   }
+}
+
+function createTaskBuddyBadge(reminderLabel: string | null, onClick: () => void): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "tb-meta-dots" + (reminderLabel ? " tb-meta-dots-active" : "");
+  span.textContent = reminderLabel ?? "⋯";
+  span.setAttribute("contenteditable", "false");
+  span.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  span.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClick();
+  });
+  return span;
+}
+
+function resolveRenderedTaskLine(li: HTMLElement, lines: string[], usedLines: Set<number>): number | null {
+  const lineAttr = li.getAttribute("data-line") ?? li.querySelector<HTMLInputElement>("input.task-list-item-checkbox")?.getAttribute("data-line");
+  const lineFromAttr = lineAttr ? parseInt(lineAttr, 10) : NaN;
+  if (!Number.isNaN(lineFromAttr) && CHECK_RE.test(lines[lineFromAttr] ?? "")) return lineFromAttr;
+
+  const renderedText = normalizeTaskText(li);
+  if (!renderedText) return null;
+  for (let i = 0; i < lines.length; i++) {
+    if (usedLines.has(i) || !CHECK_RE.test(lines[i])) continue;
+    const sourceText = normalizeTaskTextFromMarkdown(lines[i]);
+    if (sourceText === renderedText || sourceText.startsWith(renderedText) || renderedText.startsWith(sourceText)) {
+      usedLines.add(i);
+      return i;
+    }
+  }
+  return null;
+}
+
+function normalizeTaskText(li: HTMLElement): string {
+  const clone = li.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("ul, ol, .tb-meta-dots, input.task-list-item-checkbox").forEach((node) => node.remove());
+  return (clone.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeTaskTextFromMarkdown(line: string): string {
+  const match = line.match(CHECK_RE);
+  const text = match ? match[4] : line;
+  return text.replace(META_RE, "").replace(/\s+/g, " ").trim();
 }
 
 function buildTaskBuddyCMExtension(plugin: TaskBuddyPlugin) {

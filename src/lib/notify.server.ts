@@ -8,7 +8,7 @@ export function getAdmin() {
   });
 }
 
-export async function sendTelegram(chatId: string, text: string) {
+export async function sendTelegram(chatId: string, text: string, replyMarkup?: unknown) {
   const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
   const TELEGRAM_API_KEY = process.env.TELEGRAM_API_KEY;
   if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -26,6 +26,7 @@ export async function sendTelegram(chatId: string, text: string) {
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
     }),
   });
   const data = await res.json().catch(() => ({}));
@@ -53,6 +54,16 @@ function formatDue(due: string) {
   return `<b>${time}</b> (через ~${h} ч)`;
 }
 
+function buildObsidianLink(vaultName: string | null, vaultPath: string | null, obsidianId?: string) {
+  if (!vaultName || !vaultPath) return null;
+  const lineMatch = obsidianId?.match(/#L(\d+)$/);
+  const line = lineMatch ? Number(lineMatch[1]) + 1 : null;
+  const direct =
+    `obsidian://open?vault=${encodeURIComponent(vaultName)}&file=${encodeURIComponent(vaultPath)}` +
+    (line ? `&line=${line}` : "");
+  return `https://obsidian-task-buddy.lovable.app/api/public/obsidian/open?target=${encodeURIComponent(direct)}`;
+}
+
 export async function runNotifyOnce() {
   const supabase = getAdmin();
 
@@ -69,7 +80,7 @@ export async function runNotifyOnce() {
   const nowIso = new Date().toISOString();
   const { data: due, error: dueErr } = await supabase
     .from("tasks")
-    .select("id, title, due_at, notify_minutes_before, vault_path, vault_name")
+    .select("id, obsidian_id, title, due_at, notify_minutes_before, vault_path, vault_name")
     .eq("completed", false)
     .is("notified_at", null)
     .not("due_at", "is", null)
@@ -85,17 +96,16 @@ export async function runNotifyOnce() {
   let sent = 0;
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const t of ready) {
-    const link =
-      t.vault_name && t.vault_path
-        ? `obsidian://open?vault=${encodeURIComponent(t.vault_name)}&file=${encodeURIComponent(t.vault_path)}`
-        : null;
+    const link = buildObsidianLink(t.vault_name, t.vault_path, t.obsidian_id);
     const text =
       `⏰ <b>${escapeHtml(t.title)}</b>\n` +
       `Дедлайн: ${formatDue(t.due_at!)}` +
-      (t.vault_path ? `\n📄 <i>${escapeHtml(t.vault_path)}</i>` : "") +
-      (link ? `\n<a href="${link}">Открыть в Obsidian</a>` : "");
+      (t.vault_path ? `\n📄 <i>${escapeHtml(t.vault_path)}</i>` : "");
+    const replyMarkup = link
+      ? { inline_keyboard: [[{ text: "Открыть в Obsidian", url: link }]] }
+      : undefined;
     try {
-      await sendTelegram(chatId, text);
+      await sendTelegram(chatId, text, replyMarkup);
       await supabase.from("tasks").update({ notified_at: nowIso }).eq("id", t.id);
       await supabase
         .from("notification_log")
