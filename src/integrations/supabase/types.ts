@@ -14,7 +14,101 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      notification_log: {
+        Row: {
+          error: string | null
+          id: string
+          sent_at: string
+          status: string
+          task_id: string | null
+          task_title: string | null
+        }
+        Insert: {
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status: string
+          task_id?: string | null
+          task_title?: string | null
+        }
+        Update: {
+          error?: string | null
+          id?: string
+          sent_at?: string
+          status?: string
+          task_id?: string | null
+          task_title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settings: {
+        Row: {
+          default_lead_minutes: number
+          id: number
+          telegram_chat_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          default_lead_minutes?: number
+          id?: number
+          telegram_chat_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          default_lead_minutes?: number
+          id?: number
+          telegram_chat_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          completed: boolean
+          created_at: string
+          due_at: string | null
+          id: string
+          notified_at: string | null
+          notify_minutes_before: number
+          obsidian_id: string
+          title: string
+          updated_at: string
+          vault_path: string | null
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notified_at?: string | null
+          notify_minutes_before?: number
+          obsidian_id: string
+          title: string
+          updated_at?: string
+          vault_path?: string | null
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          notified_at?: string | null
+          notify_minutes_before?: number
+          obsidian_id?: string
+          title?: string
+          updated_at?: string
+          vault_path?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
