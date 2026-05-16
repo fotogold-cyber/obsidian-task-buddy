@@ -27,27 +27,21 @@
   to   { transform: scale(1); opacity: 1; }
 }
 
-/* Mobile: stick to bottom like Google Tasks */
+/* Mobile: stick to bottom like Google Tasks, scrollable so iOS keyboard
+   can push the content up without us re-positioning anything manually. */
 .tb-sheet-overlay.is-mobile {
   align-items: flex-end;
   padding: 0;
 }
-.tb-sheet-overlay.is-mobile.tb-keyboard-open {
-  align-items: flex-start;
-  justify-content: center;
-  padding: 8px 0 0;
-}
 .tb-sheet-overlay.is-mobile .tb-sheet {
   max-width: 100%;
+  max-height: 90dvh;
   border-radius: 16px 16px 0 0;
   padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
   animation: tb-slide-up 0.18s ease-out;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-}
-.tb-sheet-overlay.is-mobile.tb-keyboard-open .tb-sheet {
-  border-radius: 16px;
-  padding-bottom: 16px;
+  overscroll-behavior: contain;
 }
 
 @keyframes tb-slide-up {
