@@ -1,6 +1,6 @@
 {
   "name": "obsidian-task-buddy",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "description": "Obsidian plugin: checklist tasks → Telegram reminders",
   "main": "main.js",
   "scripts": {
