@@ -116,9 +116,36 @@ export async function runNotifyOnce() {
     });
   }
 
+  // Dedup window: same title sent in last N minutes => skip (covers multi-device
+  // re-sync producing different obsidian_id for the same logical task).
+  const DEDUP_MINUTES = 50;
+  const dedupSince = new Date(Date.now() - DEDUP_MINUTES * 60_000).toISOString();
+
   let sent = 0;
+  let skipped_duplicate = 0;
   const results: Array<{ id: string; status: string; error?: string }> = [];
   for (const t of ready) {
+    // Check if a notification with the same title was already sent recently
+    const { data: dup } = await supabase
+      .from("notification_log")
+      .select("id")
+      .eq("status", "sent")
+      .eq("task_title", t.title)
+      .gte("sent_at", dedupSince)
+      .limit(1)
+      .maybeSingle();
+    if (dup) {
+      await supabase.from("tasks").update({ notified_at: nowIso }).eq("id", t.id);
+      await supabase.from("notification_log").insert({
+        task_id: t.id,
+        task_title: t.title,
+        status: "skipped_duplicate",
+        error: `same title sent <${DEDUP_MINUTES} мин назад`,
+      });
+      skipped_duplicate++;
+      results.push({ id: t.id, status: "skipped_duplicate" });
+      continue;
+    }
     const link = buildObsidianLink(t.vault_name, t.vault_path, t.obsidian_id);
     const text =
       `⏰ <b>${escapeHtml(t.title)}</b>\n` +
@@ -150,6 +177,7 @@ export async function runNotifyOnce() {
     ready: ready.length,
     sent,
     skipped_stale: stale.length,
+    skipped_duplicate,
     results,
   };
 }
