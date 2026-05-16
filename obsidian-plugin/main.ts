@@ -434,15 +434,16 @@ class ScheduleSheet {
 
     this.overlay = document.createElement("div");
     this.overlay.className = "tb-sheet-overlay" + (Platform.isMobile ? " is-mobile" : "");
+
+    // iOS quirk: the touchend that opened the sheet synthesizes a click ~300ms
+    // later. If that click lands on the overlay (because the new overlay sits
+    // under the finger), the cancel-on-backdrop handler closes the sheet
+    // immediately. Guard it with a small grace window.
+    const openedAt = Date.now();
     this.overlay.addEventListener("click", (e) => {
+      if (Date.now() - openedAt < 400) return;
       if (e.target === this.overlay) this.close({ action: "cancel" });
     });
-    // Tapping anywhere on the sheet (outside an input) also dismisses keyboard.
-    this.overlay.addEventListener("touchstart", (e) => {
-      const t = e.target as HTMLElement | null;
-      if (t && !t.closest("input")) this.dismissKeyboard();
-    }, { passive: true });
-
 
     const sheet = document.createElement("div");
     sheet.className = "tb-sheet";
@@ -479,7 +480,9 @@ class ScheduleSheet {
     dateLabel.textContent = "Дата";
     this.dateInput = document.createElement("input");
     this.dateInput.type = "date";
-    this.dateInput.addEventListener("change", () => this.dateInput.blur());
+    this.dateInput.addEventListener("keydown", (e) => {
+      if ((e as KeyboardEvent).key === "Enter") this.dateInput.blur();
+    });
     dateRow.appendChild(dateLabel);
     dateRow.appendChild(this.dateInput);
 
@@ -502,6 +505,7 @@ class ScheduleSheet {
     this.leadInput = document.createElement("input");
     this.leadInput.type = "number";
     this.leadInput.min = "0";
+    this.leadInput.inputMode = "numeric";
     this.leadInput.value = String(this.task.notifyMinutesBefore ?? 15);
     this.leadInput.addEventListener("keydown", (e) => {
       if ((e as KeyboardEvent).key === "Enter") this.leadInput.blur();
@@ -557,54 +561,19 @@ class ScheduleSheet {
     this.overlay.appendChild(sheet);
     document.body.appendChild(this.overlay);
 
-    // Mobile keyboard handling: when an input receives focus, switch the sheet
-    // to a compact top position and cap its height so the focused field stays
-    // above the iOS keyboard even when visualViewport is late or unreliable.
+    // Mobile: when an input gets focus, scroll it into view after the iOS
+    // keyboard has had time to animate up. The sheet itself is a scrollable
+    // container (max-height: 90dvh), so iOS handles the rest natively without
+    // us re-positioning the overlay on every visualViewport tick.
     if (Platform.isMobile) {
-      if (window.visualViewport) {
-        const vv = window.visualViewport;
-        this.vvHandler = () => this.applyMobileViewport(Boolean(this.overlay.querySelector("input:focus")));
-        vv.addEventListener("resize", this.vvHandler);
-        vv.addEventListener("scroll", this.vvHandler);
-        this.applyMobileViewport(false);
-      }
-
       this.overlay.querySelectorAll<HTMLInputElement>("input").forEach((el) => {
-        el.addEventListener("focus", () => this.revealFocusedInput(el));
-        el.addEventListener("input", () => this.revealFocusedInput(el));
+        el.addEventListener("focus", () => {
+          window.setTimeout(() => {
+            try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch {}
+          }, 350);
+        });
       });
     }
-  }
-
-  private vvHandler: (() => void) | null = null;
-
-  private applyMobileViewport(keyboardMode: boolean) {
-    const vv = window.visualViewport;
-    const height = vv?.height ?? window.innerHeight;
-    const top = vv?.offsetTop ?? 0;
-    this.overlay.style.height = `${height}px`;
-    this.overlay.style.top = `${top}px`;
-    this.overlay.style.bottom = "auto";
-    if (keyboardMode) {
-      this.overlay.classList.add("tb-keyboard-open");
-      this.sheet.style.maxHeight = `${Math.max(260, Math.min(height - 16, window.innerHeight * 0.52))}px`;
-    } else {
-      this.overlay.classList.remove("tb-keyboard-open");
-      this.sheet.style.maxHeight = "";
-    }
-  }
-
-  private revealFocusedInput(el: HTMLInputElement) {
-    if (!Platform.isMobile) return;
-    this.applyMobileViewport(true);
-    window.setTimeout(() => {
-      this.applyMobileViewport(true);
-      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-    }, 80);
-    window.setTimeout(() => {
-      this.applyMobileViewport(true);
-      el.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
-    }, 320);
   }
 
   private makeChip(label: string, cb: () => void): HTMLButtonElement {
