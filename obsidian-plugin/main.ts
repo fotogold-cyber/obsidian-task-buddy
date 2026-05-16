@@ -640,11 +640,6 @@ class ScheduleSheet {
 
   private close(r: SheetResult) {
     this.dismissKeyboard();
-    if (this.vvHandler && window.visualViewport) {
-      window.visualViewport.removeEventListener("resize", this.vvHandler);
-      window.visualViewport.removeEventListener("scroll", this.vvHandler);
-      this.vvHandler = null;
-    }
     this.overlay.remove();
     this.onClose(r);
   }
