@@ -177,6 +177,7 @@ export async function runNotifyOnce() {
     ready: ready.length,
     sent,
     skipped_stale: stale.length,
+    skipped_duplicate,
     results,
   };
 }
